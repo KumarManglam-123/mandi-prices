@@ -82,7 +82,8 @@ def generate_html(rows, chartjs_code):
   html { color-scheme: dark; }
   body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 0; background: #0e1013; color: #f0f0f0; }
   .ticker-wrap { background: #b00020; overflow: hidden; white-space: nowrap; padding: 10px 0; border-bottom: 2px solid #ff4d4d; }
-  .ticker { display: inline-block; padding-left: 100%; animation: scroll-left 45s linear infinite; font-weight: 600; font-size: 0.95rem; }
+  .ticker { display: inline-block; padding-left: 100%; animation: scroll-left 140s linear infinite; font-weight: 600; font-size: 0.95rem; }
+  .ticker-wrap:hover .ticker { animation-play-state: paused; }
   .ticker span.live-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#fff; margin-right:8px; animation: blink 1s infinite; }
   @keyframes scroll-left { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
   @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
