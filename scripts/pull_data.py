@@ -10,6 +10,7 @@ set as a GitHub repo secret — never hardcoded, since this repo is public.
 
 import json
 import os
+import time
 from datetime import datetime, timezone
 
 import requests
@@ -30,12 +31,22 @@ HEADERS = {
 SITE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def fetch_page(limit, offset):
+def fetch_page(limit, offset, max_retries=4):
     url = f"https://api.data.gov.in/resource/{RESOURCE_ID}"
     params = {"api-key": API_KEY, "format": "json", "limit": limit, "offset": offset}
-    resp = requests.get(url, params=params, headers=HEADERS, timeout=30)
-    resp.raise_for_status()
-    return resp.json().get("records", [])
+    last_error = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            resp = requests.get(url, params=params, headers=HEADERS, timeout=60)
+            resp.raise_for_status()
+            return resp.json().get("records", [])
+        except requests.exceptions.RequestException as e:
+            last_error = e
+            wait = attempt * 5
+            print(f"    [!] attempt {attempt} failed ({e}); retrying in {wait}s...")
+            time.sleep(wait)
+    print(f"    [!] giving up on offset={offset} after {max_retries} attempts: {last_error}")
+    return []
 
 
 def fetch_all():
@@ -320,6 +331,12 @@ if __name__ == "__main__":
     print("Pulling nationwide mandi prices...")
     rows = fetch_all()
     print(f"Total records pulled: {len(rows)}")
+
+    if len(rows) < 100:
+        raise SystemExit(
+            f"Only {len(rows)} records pulled — API likely had issues today. "
+            "Skipping site update to avoid overwriting it with near-empty data."
+        )
 
     chartjs_code = load_chartjs()
     html = generate_html(rows, chartjs_code)
