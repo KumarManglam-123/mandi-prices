@@ -10,6 +10,7 @@ set as a GitHub repo secret — never hardcoded, since this repo is public.
 
 import json
 import os
+import sys
 import time
 from datetime import datetime, timezone
 
@@ -20,6 +21,7 @@ RESOURCE_ID = "9ef84268-d588-465a-a308-a864a43d0070"
 
 LIMIT_PER_QUERY = 500
 MAX_PAGES = 25   # ~12,500 records max per run — keeps the daily job fast & reliable
+MIN_SUCCESSFUL_ROWS = 100
 
 HEADERS = {
     "User-Agent": (
@@ -37,12 +39,12 @@ def fetch_page(limit, offset, max_retries=4):
     last_error = None
     for attempt in range(1, max_retries + 1):
         try:
-            resp = requests.get(url, params=params, headers=HEADERS, timeout=60)
+            resp = requests.get(url, params=params, headers=HEADERS, timeout=90)
             resp.raise_for_status()
             return resp.json().get("records", [])
-        except requests.exceptions.RequestException as e:
+        except (requests.exceptions.RequestException, ValueError) as e:
             last_error = e
-            wait = attempt * 5
+            wait = min(30, attempt * 10)
             print(f"    [!] attempt {attempt} failed ({e}); retrying in {wait}s...")
             time.sleep(wait)
     print(f"    [!] giving up on offset={offset} after {max_retries} attempts: {last_error}")
@@ -174,10 +176,10 @@ def generate_html(rows, chartjs_code):
   <tbody></tbody>
 </table>
 </div>
-<div class="note">"मूल्य स्थिति" कॉलम आज के न्यूनतम-अधिकतम दायरे में औसत मूल्य की स्थिति दिखाता है (यह पिछले दिन की तुलना नहीं है, क्योंकि सरकारी डेटा प्रतिदिन केवल एक बार प्रकाशित होता है)।</div>
-</div>
+<div class="note">"मूल्य स्थिति" कॉलम आज के न्यूनतम-अधिकतम दायरे में औसत मूल्य की स्थि�� के आधार पर दर्शाता है।</div>
 
-<footer>GitHub Actions द्वारा प्रतिदिन स्वतः अद्यतन &middot; डेटा स्रोत: कृषि एवं किसान कल्याण मंत्रालय, data.gov.in</footer>
+<footer>GitHub Actions द्वारा प्रतिदिन स्वतः अद्यतन &middot; डेटा स्रोत: कृषि एवं किसान कल्याण मंत्रालय, भारत</footer>
+</div>
 
 <script>
 const rows = __DATA__;
@@ -332,11 +334,12 @@ if __name__ == "__main__":
     rows = fetch_all()
     print(f"Total records pulled: {len(rows)}")
 
-    if len(rows) < 100:
-        raise SystemExit(
+    if len(rows) < MIN_SUCCESSFUL_ROWS:
+        print(
             f"Only {len(rows)} records pulled — API likely had issues today. "
             "Skipping site update to avoid overwriting it with near-empty data."
         )
+        raise SystemExit(0)
 
     chartjs_code = load_chartjs()
     html = generate_html(rows, chartjs_code)
